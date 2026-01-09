@@ -2,29 +2,18 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
-#define HEAP_SIZE 4096
+#include "block.h"
+#include "region.h"
 
-void *heap_start = NULL;
-void *heap_top = NULL;
+#define PAGE_SIZE 4096
 
-void *bad_malloc(size_t size) {
-    void *heap_end = (char *)heap_start + HEAP_SIZE;
+static region_t *global_region = NULL;
 
-    if ((char *)heap_top + size > (char *)heap_end) {
-        printf("Heap overflow :P.\n");
-        return NULL;
-    }
-
-    void *result = heap_top;
-    heap_top = (char *)heap_top + size;
-
-    return result;
-}
-
-void init_heap() {
+void init_region() {
+    // request raw memory
     void *addr = mmap(
         NULL,
-        HEAP_SIZE,
+        PAGE_SIZE,
         PROT_READ | PROT_WRITE,
         MAP_PRIVATE | MAP_ANONYMOUS,
         -1,
@@ -35,45 +24,60 @@ void init_heap() {
         exit(1);
     }
 
-    heap_start = addr;
-    heap_top = addr;
+    // initialize region header
+    global_region = (region_t *)addr;
+    global_region->size = PAGE_SIZE;
+    global_region->next = NULL;
+
+    // initialize first block
+    //
+    // calculate where is the block start (just after the region)
+    void *block_addr = (void *)global_region + sizeof(region_t);
+    block_t *first_block = (block_t *)block_addr;
+
+    first_block->size = PAGE_SIZE - sizeof(region_t) - sizeof(block_t);
+    first_block->is_free = true;
+    first_block->next = NULL;
+
+    printf("Global Region start address: %p\n", (void *)global_region);
+    printf("Global Region end address: %p\n\n", (void *)global_region + PAGE_SIZE);
+
+    printf("Header Region start address: %p\n", (void *)global_region);
+    printf("Header Region size in bytes: %lu\n", sizeof(global_region->size));
+    printf("Header Region next in bytes: %zu\n", sizeof(region_t));
+    printf("Header Region end address: %p\n", (void *)global_region + sizeof(region_t));
 }
 
-void debug_heap() {
-    printf("Top: %p\n", heap_top);
+void *bad_malloc(size_t size) {
+    if (size <= 0) {
+        return NULL;
+    }
 
-    size_t used = (char *)heap_top - (char *)heap_start;
-    size_t free = HEAP_SIZE - used;
+    if (global_region == NULL) {
+        init_region();
+    }
 
-    printf("Used: %zu bytes\n", used);
-    printf("Free: %zu bytes\n\n", free);
+    block_t *current = (block_t *)((void *)global_region + sizeof(region_t));
+
+    while (current != NULL) {
+        if (current->is_free && current->size >= size) {
+            current->is_free = false;
+
+            return (void *)current + sizeof(block_t);
+        }
+
+        current = current->next;
+    }
+
+    printf("Out of memory!\n");
+    return NULL;
 }
 
 int main() {
-    init_heap();
+    init_region();
 
-    printf("--- Heap Status ---\n");
-    printf("Start: %p\n", heap_start);
-    printf("End: %p\n\n", (char *)heap_start + HEAP_SIZE);
+    bad_malloc(10);
+    // bad_malloc(5);
 
-    printf("Requesting 10 bytes ...\n");
-    void *ptr = bad_malloc(10);
-    if (ptr == NULL) {
-        printf("Failed to allocate memory.\n");
-    };
-    debug_heap();
-
-    printf("Requesting 5 bytes ...\n");
-    void *ptr2 = bad_malloc(5);
-    if (ptr2 == NULL) {
-        printf("Failed to allocate memory.\n");
-    };
-    debug_heap();
-
-    printf("Requesting 100000 bytes ...\n");
-    void *ptr3 = bad_malloc(100000);
-    if (ptr3 == NULL) {
-        printf("Failed to allocate memory.\n");
-    };
-    debug_heap();
+    return 0;
 }
