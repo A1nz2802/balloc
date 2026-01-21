@@ -1,9 +1,21 @@
-Memory Allocator from Scratch.
+A Bad Memory Allocator built from scratch for learning purposes.
 
-## First Iteration: Bump Allocator 
+# Code Explanation
 
 <img src=".images/01.png">
 
-## Second Iteration: First-Fit Linked List Allocator
+# Code Iterations
+
+## 1° Iteration: Bump Allocator 
+
+<img src=".images/01.png">
+
+## 2° Iteration: First-Fit Linked List Allocator
 
 <img src=".images/02.png">
+
+## 3° Iteration: Block Splitting Algorithm
+
+<img src=".images/04.png">
+
+<img src=".images/03.png">
