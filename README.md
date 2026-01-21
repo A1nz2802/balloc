@@ -1,9 +1,5 @@
 A Bad Memory Allocator built from scratch for learning purposes.
 
-# Code Explanation
-
-<img src=".images/01.png">
-
 # Code Iterations
 
 ## 1° Iteration: Bump Allocator 
