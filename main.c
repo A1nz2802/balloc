@@ -61,10 +61,72 @@ void split_block(block_t *current_block, size_t requested_size) {
     new_block->is_free = true;
     new_block->next = current_block->next;
 
-    // update the current block
+    // Link back to the current block (backward Link)
+    new_block->prev = current_block;
+
+    // update the current block metadata
     current_block->size = requested_size;
     current_block->is_free = false;
     current_block->next = new_block;
+
+    // Update the reverse pointer of the next block (if it exists)
+    // The block that used to follow 'current_block' must now point back to 'new_block'
+    if (new_block->next != NULL) {
+        new_block->next->prev = new_block;
+    }
+}
+
+void free(void *payload) {
+    // safety check
+    if (payload == NULL) {
+        return;
+    }
+
+    // get the block header
+    // we move backwards from the payload pointer to find the block start
+    block_t *current_block = (block_t *)((void *)payload - sizeof(block_t));
+
+    // mark as free
+    current_block->is_free = true;
+
+    // get next block (neighbor)
+    block_t *next_block = current_block->next;
+
+    // check if next block exists AND is free
+    if (next_block != NULL && next_block->is_free) {
+
+        // 1. Update Size (Absorb the neigbor)
+        // New Size = My SIZE + Neighbor's Size + Neighbor's Header
+        current_block->size += next_block->size + sizeof(block_t);
+
+        // 2. Update Pointers (The bridge)
+        // Skip over the 'next block' because its now part of the 'current_block'
+        current_block->next = next_block->next;
+
+        // 3. Update Reverse Pointer (If aplicable)
+        // If there is a block AFTER the one we just ate, let i t know we are its new neighbor
+        if (current_block->next != NULL) {
+            current_block->next->prev = current_block;
+        }
+    }
+
+    // get previous block (backward neighbor)
+    block_t *prev_block = current_block->prev;
+
+    // check if the previous block exists AND is free
+    if (prev_block != NULL && prev_block->is_free) {
+
+        // 1. Update Size
+        prev_block->size += current_block->size + sizeof(block_t);
+
+        // 2. Update Pointers
+        prev_block->next = current_block->next;
+
+        // 3. Update Reverse Pointer
+        if (current_block->next != NULL) {
+            current_block->next->prev = prev_block;
+        }
+    }
 }
 
 void *balloc(size_t size) {
@@ -110,8 +172,7 @@ int main() {
 
     balloc(10);
     balloc(20);
-
-    printf("Some");
+    balloc(10);
 
     return 0;
 }
