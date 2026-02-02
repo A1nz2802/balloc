@@ -2,3 +2,5 @@ main
 some.md
 .gdb_history
 allocator
+*.o
+allocator_test
